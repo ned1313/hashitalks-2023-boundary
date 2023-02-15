@@ -1,0 +1,82 @@
+#!/bin/bash
+
+# Terraform variables
+# key_vault_url - the url to the key vault holding the boundary secrets
+# hcp_boundary_version - the version of the boundary worker cli to install
+# tags - A list of tags to apply to the worker
+
+# Download the boundary bits
+curl -fsSL https://apt.releases.hashicorp.com/gpg | sudo apt-key add -
+sudo apt-add-repository "deb [arch=amd64] https://apt.releases.hashicorp.com $(lsb_release -cs) main"
+sudo apt-get update && sudo apt-get install boundary-worker-hcp jq -y
+
+# Grab the credentials from key vault
+access_token=$(curl -s 'http://169.254.169.254/metadata/identity/oauth2/token?api-version=2018-02-01&resource=https%3A%2F%2Fvault.azure.net' -H Metadata:true | jq .access_token -r)
+boundary_id=$(curl -s "${key_vault_url}/secrets/boundary-cluster-id?api-version=2016-10-01" -H "Authorization: Bearer $access_token" | jq .value -r)
+boundary_username=$(curl -s "${key_vault_url}/secrets/boundary-cluster-username?api-version=2016-10-01" -H "Authorization: Bearer $access_token" | jq .value -r)
+boundary_password=$(curl -s "${key_vault_url}/secrets/boundary-cluster-password?api-version=2016-10-01" -H "Authorization: Bearer $access_token" | jq .value -r)
+boundary_auth_method_id=$(curl -s "${key_vault_url}/secrets/boundary-cluster-auth-method-id?api-version=2016-10-01" -H "Authorization: Bearer $access_token" | jq .value -r)
+
+
+# Create the configuration file
+
+sudo bash -c 'cat > /etc/boundary.d/worker.hcl' << EOF
+disable_mlock = true
+
+hcp_boundary_cluster_id = "$boundary_id"
+
+listener "tcp" {
+  address = "127.0.0.1:9202"
+  purpose = "proxy"
+}
+
+worker {
+  auth_storage_path = "/etc/boundary.d/worker"
+  tags {
+    type = ["worker", "linux", "taco"]
+  }
+}
+EOF
+
+# Create the boundary service for systemd
+sudo bash -c 'cat > /etc/systemd/system/boundary-worker.service' << EOF
+[Unit]
+Description=boundary worker
+[Service]
+ExecStart=/usr/bin/boundary-worker server -config="/etc/boundary.d/worker.hcl"
+User=boundary
+Group=boundary
+LimitMEMLOCK=infinity
+Capabilities=CAP_IPC_LOCK+ep
+CapabilityBoundingSet=CAP_SYSLOG CAP_IPC_LOCK
+[Install]
+WantedBy=multi-user.target
+EOF
+
+# Add the boundary system user and group to ensure we have a no-login
+# user capable of owning and running Boundary
+# sudo adduser --system --group boundary || true (boundary is created by the package install)
+sudo chown boundary:boundary /etc/boundary.d/worker.hcl
+sudo mkdir /etc/boundary.d/worker
+sudo chown boundary:boundary /etc/boundary.d/worker
+sudo chown boundary:boundary /usr/bin/boundary-worker
+
+# Finish service configuration for boundary and start the service
+sudo chmod 664 /etc/systemd/system/boundary-worker.service
+sudo systemctl daemon-reload
+sudo systemctl enable boundary-worker
+sudo systemctl start boundary-worker
+
+# Register the worker with the controller
+export BOUNDARY_ADDR="https://$boundary_id.boundary.hashicorp.cloud"
+export BOUNDARY_PASSWORD=$boundary_password
+
+export BOUNDARY_TOKEN=$(boundary-worker authenticate password -keyring-type=none -auth-method-id=$boundary_auth_method_id -login-name=$boundary_username -password=env://BOUNDARY_PASSWORD -format=json | jq .item.attributes.token -r)
+export WORKER_TOKEN=$(sudo cat /etc/boundary.d/worker/auth_request_token)
+
+response=$(boundary-worker workers create worker-led -format=json -worker-generated-auth-token=$WORKER_TOKEN -token env://BOUNDARY_TOKEN)
+
+# Log worker ID for deregistration
+echo $response | sudo bash -c 'jq .item.id -r > /etc/boundary.d/worker/worker_id'
+
+# Eat a taco and celebrate

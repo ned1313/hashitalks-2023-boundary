@@ -1,0 +1,2 @@
+type=worker;actions=create:worker-led,list,delete
+id=*;type=worker;actions=read
