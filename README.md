@@ -99,4 +99,6 @@ And then you can delete the Boundary cluster from HCP.
 
 I'd like to refactor the code into modules and make it more generic. I'd also like to make the autoscale policy more flexible, although that's challenging since there are so many possible options.
 
+I'm also planning on implementing the `deregister.sh` script into the VMSS setup to enable automatic worker deregistration.
+
 Thanks for trying out the code and please log an issue or hit me up on Twitter/LinkeIn if you have any questions or suggestions.
