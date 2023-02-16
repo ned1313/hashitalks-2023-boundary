@@ -1,18 +1,3 @@
-/* Two modules are needed. One to create Azure VMSS
-and another to configure HCP Boundary.
-
-For Azure we need:
-- Resource Group
-- Virtual Network
-- Subnet
-- Network Security Group
-- VMSS
-- User Assigned Identity
-- Key Vault
-- Key Vault Secrets
-- Key Vault Role Assignment
-*/
-
 provider "azurerm" {
   features {}
 }

@@ -1,0 +1,16 @@
+boundary_worker_user = {
+  username = "azureworkers"
+  password = "SOME_LONG_PASSWORD"
+}
+boundary_id                      = "ID_OF_HCP_BOUNDARY_CONTROLLER"
+boundary_password_auth_method_id = "PASSWORD_AUTH_METHOD_ID"
+vmss_source_image = {
+  publisher = "Canonical"
+  offer     = "0001-com-ubuntu-server-focal"
+  sku       = "20_04-lts-gen2"
+  version   = "latest"
+}
+
+vmss_admin_username = "boundaryadmin"
+
+boundary_worker_tags = ["azure", "westus", "taco"]
