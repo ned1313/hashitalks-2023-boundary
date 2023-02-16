@@ -101,4 +101,4 @@ I'd like to refactor the code into modules and make it more generic. I'd also li
 
 I'm also planning on implementing the `deregister.sh` script into the VMSS setup to enable automatic worker deregistration.
 
-Thanks for trying out the code and please log an issue or hit me up on Twitter/LinkeIn if you have any questions or suggestions.
+Thanks for trying out the code and please log an issue or hit me up on Twitter/LinkedIn if you have any questions or suggestions.
