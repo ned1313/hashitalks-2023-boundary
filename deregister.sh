@@ -3,7 +3,7 @@
 # Get the VM ID from the Azure Metadata Service
 vm_id=$(curl -s -H Metadata:True --noproxy "*" "http://169.254.169.254/metadata/instance?api-version=2021-02-01&format=json" | jq .compute.name -r)
 # Check to see if the VM is being Terminated
-result=$(curl -s 'http://169.254.169.254/metadata/scheduledevents?api-version=2019-01-01' -H Metadata:true | jq --arg vmid $vm_id -r '.Events[] | select(.EventType == "Terminate") | select(.Resources[] | contains($vmid)) | .EventId')
+result=$(curl -s --noproxy "*" 'http://169.254.169.254/metadata/scheduledevents?api-version=2019-01-01' -H Metadata:true | jq --arg vmid $vm_id -r '.Events[] | select(.EventType == "Terminate") | select(.Resources[] | contains($vmid)) | .EventId')
 
 # If the VM is being deprovisioned, then stop the boundary-worker service
 if [ $result != null ]

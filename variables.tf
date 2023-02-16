@@ -65,6 +65,12 @@ variable "boundary_password_auth_method_id" {
   description = "(Required) The ID of the HCP Boundary password auth method."
 }
 
+variable "boundary_worker_tags" {
+  type        = list(string)
+  description = "(Optional) The tags to apply to the Boundary worker."
+  default     = null
+}
+
 variable "vmss_admin_username" {
   type        = string
   description = "(Required) The admin username of the VMSS"

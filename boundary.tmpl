@@ -3,7 +3,7 @@
 # Terraform variables
 # key_vault_url - the url to the key vault holding the boundary secrets
 # hcp_boundary_version - the version of the boundary worker cli to install
-# tags - A list of tags to apply to the worker
+# boundary_tags - A list of tags to apply to the worker
 
 # Download the boundary bits
 curl -fsSL https://apt.releases.hashicorp.com/gpg | sudo apt-key add -
@@ -26,14 +26,18 @@ disable_mlock = true
 hcp_boundary_cluster_id = "$boundary_id"
 
 listener "tcp" {
-  address = "127.0.0.1:9202"
+  address = "0.0.0.0:9202"
   purpose = "proxy"
 }
 
 worker {
   auth_storage_path = "/etc/boundary.d/worker"
   tags {
-    type = ["worker", "linux", "taco"]
+    type = [
+    %{ for tag in boundary_tags ~}
+      "${tag}",
+      %{ endfor ~}
+    ]
   }
 }
 EOF

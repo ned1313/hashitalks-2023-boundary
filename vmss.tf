@@ -16,6 +16,20 @@ resource "azurerm_network_security_group" "main" {
   name                = "${var.naming_prefix}-vmss-nsg"
 }
 
+resource "azurerm_network_security_rule" "boundary_in" {
+  name                        = "boundary-client-inbound"
+  priority                    = 1000
+  direction                   = "Inbound"
+  access                      = "Allow"
+  protocol                    = "Tcp"
+  source_port_range           = "*"
+  destination_port_range      = "9202"
+  source_address_prefix       = "*"
+  destination_address_prefix  = var.subnet_prefixes[0]
+  resource_group_name         = azurerm_resource_group.main.name
+  network_security_group_name = azurerm_network_security_group.main.name
+}
+
 resource "azurerm_linux_virtual_machine_scale_set" "main" {
   resource_group_name             = azurerm_resource_group.main.name
   location                        = azurerm_resource_group.main.location
@@ -54,6 +68,10 @@ resource "azurerm_linux_virtual_machine_scale_set" "main" {
       name      = "${var.naming_prefix}-vmss-ip-config"
       primary   = true
       subnet_id = module.vnet.vnet_subnets[0]
+      public_ip_address {
+        name              = "${var.naming_prefix}-vmss-pip"
+        domain_name_label = "${var.naming_prefix}${random_id.id.hex}"
+      }
     }
   }
 
@@ -64,8 +82,14 @@ resource "azurerm_linux_virtual_machine_scale_set" "main" {
     ]
   }
 
+  termination_notification {
+    enabled = true
+    timeout = "PT5M"
+  }
+
   custom_data = base64encode(templatefile("${path.module}/boundary.tmpl", {
     key_vault_url = azurerm_key_vault.main.vault_uri
+    boundary_tags = var.boundary_worker_tags
   }))
 
 }
@@ -93,8 +117,8 @@ resource "azurerm_monitor_autoscale_setting" "main" {
     }
 
     recurrence {
-      days  = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"]
-      hours = [var.vmss_working_hours_utc.start]
+      days    = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"]
+      hours   = [var.vmss_working_hours_utc.start]
       minutes = [0]
     }
   }
@@ -109,8 +133,8 @@ resource "azurerm_monitor_autoscale_setting" "main" {
     }
 
     recurrence {
-      days  = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"]
-      hours = [var.vmss_working_hours_utc.end]
+      days    = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"]
+      hours   = [var.vmss_working_hours_utc.end]
       minutes = [0]
     }
   }
